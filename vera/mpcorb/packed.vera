@@ -1,13 +1,12 @@
-module vera.mpcorb.packed;
+module mpcorb.packed;
+
+-- Epoch record: (year, month, day) decoded from a packed MPC epoch.
+public data Epoch {
+  MkEpoch(Nat, Nat, Nat)
+}
 
 -- Packed designation and epoch decoders for the MPC's MPCORB.DAT format.
 -- Reference: https://minorplanetcenter.net/iau/info/PackedDes.html
---
--- NOTE: The following functions are pending future compiler built-ins:
---   char_code(String, Nat -> Nat)  — get UTF-8 byte value at index
---   parse_nat(String -> Nat)       — parse decimal string to natural number
---   to_string(Nat -> String)       — convert natural number to decimal string
---   strip(String -> String)        — trim leading/trailing whitespace
 
 -- Convert a packed letter to its numeric value.
 -- Uppercase A=10..Z=35, lowercase a=36..z=61.
@@ -32,7 +31,7 @@ public fn letter_to_number(@String -> @Nat)
 -- Century letters: I=18xx, J=19xx, K=20xx
 -- Month chars: 1-9 for Jan-Sep, A=Oct(10), B=Nov(11), C=Dec(12)
 -- Day chars: 1-9 for days 1-9, A-V for days 10-31
-public fn unpack_epoch(@String -> @Tuple<Nat, Nat, Nat>)
+public fn unpack_epoch(@String -> @Epoch)
   requires(string_length(@String.0) == 5)
   ensures(true)
   effects(pure)
@@ -61,7 +60,7 @@ public fn unpack_epoch(@String -> @Tuple<Nat, Nat, Nat>)
   let @String = string_slice(@String.1, 4, 5);
   let @Nat = decode_day_char(@String.0);
 
-  Tuple(@Nat.2, @Nat.1, @Nat.0)
+  MkEpoch(@Nat.2, @Nat.1, @Nat.0)
 }
 where {
   fn decode_day_char(@String -> @Nat)

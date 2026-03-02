@@ -1,6 +1,6 @@
-module vera.mpcorb.fields;
+module mpcorb.fields;
 
-import vera.mpcorb.packed;
+import packed;
 
 -- Refinement types for physically constrained orbital element fields.
 
@@ -15,11 +15,6 @@ type Magnitude = { @Float64 | @Float64.0 >= -2.0 && @Float64.0 <= 35.0 };
 -- string_slice calls use 0-indexed offsets.
 --
 -- Reference: https://minorplanetcenter.net/iau/info/MPOrbitFormat.html
---
--- NOTE: The following functions are pending future compiler built-ins:
---   parse_float64(String -> Float64) — parse decimal string to float
---   parse_nat(String -> Nat)         — parse decimal string to natural number
---   strip(String -> String)          — trim leading/trailing whitespace
 
 -- Columns 1-7: Packed designation (7 chars).
 public fn parse_designation(@String -> @String)
@@ -27,7 +22,7 @@ public fn parse_designation(@String -> @String)
   ensures(string_length(@String.result) > 0)
   effects(pure)
 {
-  vera.mpcorb.packed::unpack_designation(string_slice(@String.0, 0, 7))
+  packed::unpack_designation(string_slice(@String.0, 0, 7))
 }
 
 -- Columns 9-13: Absolute magnitude H (5 chars, may be blank).
@@ -59,12 +54,12 @@ public fn parse_slope_param(@String -> @Option<Float64>)
 }
 
 -- Columns 21-25: Epoch in packed form (5 chars) -> (year, month, day).
-public fn parse_epoch(@String -> @Tuple<Nat, Nat, Nat>)
+public fn parse_epoch(@String -> @Epoch)
   requires(string_length(@String.0) >= 25)
   ensures(true)
   effects(pure)
 {
-  vera.mpcorb.packed::unpack_epoch(string_slice(@String.0, 20, 25))
+  packed::unpack_epoch(string_slice(@String.0, 20, 25))
 }
 
 -- Columns 27-35: Mean anomaly M in degrees (9 chars).

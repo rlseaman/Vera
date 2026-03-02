@@ -1,6 +1,6 @@
-module vera.mpcorb;
+module mpcorb;
 
-import vera.mpcorb.fields;
+import mpcorb.fields;
 
 -- Refinement types (re-exported for consumers of this module).
 type Degrees = { @Float64 | @Float64.0 >= 0.0 && @Float64.0 < 360.0 };
@@ -46,52 +46,52 @@ public fn parse_line(@String, @Nat -> @ParseResult)
   ensures(true)
   effects(pure)
 {
-  let @String = vera.mpcorb.fields::parse_designation(@String.0);
+  let @String = mpcorb.fields::parse_designation(@String.0);
 
   let @Option<Float64> = if string_length(@String.1) >= 13 then {
-    vera.mpcorb.fields::parse_abs_magnitude(@String.1)
+    mpcorb.fields::parse_abs_magnitude(@String.1)
   } else {
     None
   };
 
   let @Option<Float64> = if string_length(@String.1) >= 19 then {
-    vera.mpcorb.fields::parse_slope_param(@String.1)
+    mpcorb.fields::parse_slope_param(@String.1)
   } else {
     None
   };
 
-  let Tuple<@Nat, @Nat, @Nat> = vera.mpcorb.fields::parse_epoch(@String.1);
+  let MkEpoch<@Nat, @Nat, @Nat> = mpcorb.fields::parse_epoch(@String.1);
 
-  let @Degrees = vera.mpcorb.fields::parse_mean_anomaly(@String.1);
-  let @Degrees = vera.mpcorb.fields::parse_arg_perihelion(@String.1);
-  let @Degrees = vera.mpcorb.fields::parse_long_node(@String.1);
+  let @Degrees = mpcorb.fields::parse_mean_anomaly(@String.1);
+  let @Degrees = mpcorb.fields::parse_arg_perihelion(@String.1);
+  let @Degrees = mpcorb.fields::parse_long_node(@String.1);
 
-  let @Inclination = vera.mpcorb.fields::parse_inclination(@String.1);
-  let @Eccentricity = vera.mpcorb.fields::parse_eccentricity(@String.1);
+  let @Inclination = mpcorb.fields::parse_inclination(@String.1);
+  let @Eccentricity = mpcorb.fields::parse_eccentricity(@String.1);
 
-  let @PositiveFloat = vera.mpcorb.fields::parse_mean_motion(@String.1);
-  let @PositiveFloat = vera.mpcorb.fields::parse_semimajor_axis(@String.1);
+  let @PositiveFloat = mpcorb.fields::parse_mean_motion(@String.1);
+  let @PositiveFloat = mpcorb.fields::parse_semimajor_axis(@String.1);
 
   let @Nat = if string_length(@String.1) >= 122 then {
-    vera.mpcorb.fields::parse_num_observations(@String.1)
+    mpcorb.fields::parse_num_observations(@String.1)
   } else {
     0
   };
 
   let @Nat = if string_length(@String.1) >= 126 then {
-    vera.mpcorb.fields::parse_num_oppositions(@String.1)
+    mpcorb.fields::parse_num_oppositions(@String.1)
   } else {
     0
   };
 
   let @Option<Float64> = if string_length(@String.1) >= 141 then {
-    vera.mpcorb.fields::parse_rms_residual(@String.1)
+    mpcorb.fields::parse_rms_residual(@String.1)
   } else {
     None
   };
 
   let @String = if string_length(@String.1) >= 194 then {
-    vera.mpcorb.fields::parse_readable_name(@String.1)
+    mpcorb.fields::parse_readable_name(@String.1)
   } else {
     ""
   };
