@@ -1,0 +1,16 @@
+# Vera build artifacts
+*.wasm
+*.wasm.map
+build/
+out/
+
+# Editor and OS
+.DS_Store
+*~
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Claude Code
+.claude/
