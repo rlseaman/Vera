@@ -1,0 +1,233 @@
+module vera.mpcorb.packed;
+
+-- Packed designation and epoch decoders for the MPC's MPCORB.DAT format.
+-- Reference: https://minorplanetcenter.net/iau/info/PackedDes.html
+
+-- Convert a packed letter to its numeric value.
+-- Uppercase A=10..Z=35, lowercase a=36..z=61.
+-- Used in packed designations and packed epoch encoding.
+public fn letter_to_number(@String -> @Nat)
+  requires(length(@String.0) == 1)
+  ensures(@Nat.result >= 10 && @Nat.result <= 61)
+  effects(pure)
+{
+  let @Nat = char_code(@String.0, 0);
+  if @Nat.0 >= 65 && @Nat.0 <= 90 then {
+    -- A(65)=10 .. Z(90)=35
+    @Nat.0 - 55
+  } else {
+    -- a(97)=36 .. z(122)=61
+    @Nat.0 - 61
+  }
+}
+
+-- Decode a 5-character packed epoch into (year, month, day).
+-- Format: [century_letter][year_digit][year_digit][month_char][day_char]
+-- Century letters: I=18xx, J=19xx, K=20xx
+-- Month chars: 1-9 for Jan-Sep, A=Oct(10), B=Nov(11), C=Dec(12)
+-- Day chars: 1-9 for days 1-9, A-V for days 10-31
+public fn unpack_epoch(@String -> @Tuple<Nat, Nat, Nat>)
+  requires(length(@String.0) == 5)
+  ensures(
+    @Tuple<Nat, Nat, Nat>.result.0 >= 1800 &&
+    @Tuple<Nat, Nat, Nat>.result.0 <= 2099 &&
+    @Tuple<Nat, Nat, Nat>.result.1 >= 1 &&
+    @Tuple<Nat, Nat, Nat>.result.1 <= 12 &&
+    @Tuple<Nat, Nat, Nat>.result.2 >= 1 &&
+    @Tuple<Nat, Nat, Nat>.result.2 <= 31
+  )
+  effects(pure)
+{
+  -- Decode century from first character
+  let @Nat = match slice(@String.0, 0, 1) {
+    "I" -> 1800,
+    "J" -> 1900,
+    "K" -> 2000,
+    _   -> 1900
+  };
+
+  -- Decode two-digit year and add to century
+  let @Nat = @Nat.0 + parse_nat(slice(@String.0, 1, 3));
+
+  -- Decode month character
+  let @String = slice(@String.0, 3, 4);
+  let @Nat = match @String.0 {
+    "A" -> 10,
+    "B" -> 11,
+    "C" -> 12,
+    _   -> parse_nat(@String.0)
+  };
+
+  -- Decode day character (use @String.1 to reference original 5-char input)
+  let @String = slice(@String.1, 4, 5);
+  let @Nat = decode_day_char(@String.0);
+
+  (@Nat.2, @Nat.1, @Nat.0)
+}
+where {
+  fn decode_day_char(@String -> @Nat)
+    requires(length(@String.0) == 1)
+    ensures(@Nat.result >= 1 && @Nat.result <= 31)
+    effects(pure)
+  {
+    let @Nat = char_code(@String.0, 0);
+    if @Nat.0 >= 48 && @Nat.0 <= 57 then {
+      -- '0'-'9' -> numeric value (days 1-9; '0' would be invalid but parsed)
+      @Nat.0 - 48
+    } else {
+      -- 'A'(65)=10 .. 'V'(86)=31
+      @Nat.0 - 55
+    }
+  }
+}
+
+-- Unpack a 7-character packed minor planet designation into a readable string.
+-- Handles three formats:
+--   1. Numbered asteroids (columns are all digits or use letter encoding)
+--   2. Provisional designations (e.g., "J95X00A" -> "1995 XA")
+--   3. Survey designations (e.g., "2050 P-L")
+--
+-- Numbered asteroid encoding:
+--   - Pure 5-digit number (right-justified, space-padded): direct number
+--   - First char is letter (A-Z): encodes 100000-619999
+--   - First char is tilde (~): encodes 620000+ using base-62
+public fn unpack_designation(@String -> @String)
+  requires(length(@String.0) >= 5)
+  ensures(length(@String.result) > 0)
+  effects(pure)
+{
+  let @String = slice(@String.0, 0, 1);
+  let @Nat = char_code(@String.0, 0);
+
+  if @String.0 == "~" then {
+    -- Tilde-encoded number >= 620000 (base-62 in chars 2-6)
+    let @Nat = decode_base62(slice(@String.1, 1, 5));
+    to_string(@Nat.0)
+  } else {
+    if @Nat.0 >= 48 && @Nat.0 <= 57 then {
+      -- First char is digit or space: plain numbered asteroid
+      strip(slice(@String.1, 0, 5))
+    } else {
+      if @Nat.0 >= 65 && @Nat.0 <= 90 then {
+        -- First char is uppercase letter
+        if is_digit(slice(@String.1, 1, 2)) then {
+          -- Numbered asteroid 100000-619999: letter prefix + 4 digits
+          let @Nat = letter_to_number(@String.0) * 10000 +
+                     parse_nat(slice(@String.1, 1, 5));
+          to_string(@Nat.0)
+        } else {
+          -- Provisional designation
+          unpack_provisional(@String.1)
+        }
+      } else {
+        -- Fallback: return trimmed input
+        strip(@String.1)
+      }
+    }
+  }
+}
+where {
+  -- Decode a 4-character base-62 string to a number.
+  -- Each character is 0-9, A-Z (10-35), a-z (36-61).
+  fn decode_base62(@String -> @Nat)
+    requires(length(@String.0) == 4)
+    ensures(@Nat.result >= 0)
+    effects(pure)
+  {
+    let @Nat = char62(slice(@String.0, 0, 1));
+    let @Nat = @Nat.0 * 62 + char62(slice(@String.0, 1, 2));
+    let @Nat = @Nat.0 * 62 + char62(slice(@String.0, 2, 3));
+    @Nat.0 * 62 + char62(slice(@String.0, 3, 4))
+  }
+
+  -- Convert a single character to its base-62 value.
+  fn char62(@String -> @Nat)
+    requires(length(@String.0) == 1)
+    ensures(@Nat.result >= 0 && @Nat.result <= 61)
+    effects(pure)
+  {
+    let @Nat = char_code(@String.0, 0);
+    if @Nat.0 >= 48 && @Nat.0 <= 57 then {
+      @Nat.0 - 48
+    } else {
+      if @Nat.0 >= 65 && @Nat.0 <= 90 then {
+        @Nat.0 - 55
+      } else {
+        @Nat.0 - 61
+      }
+    }
+  }
+
+  -- Decode a provisional designation from a 7-character packed form.
+  -- Format: [century][year1][year2][half-month][order1][order2][fragment]
+  -- Example: "J95X00A" -> "1995 XA", "J95X01A" -> "1995 XA1"
+  fn unpack_provisional(@String -> @String)
+    requires(length(@String.0) >= 7)
+    ensures(length(@String.result) > 0)
+    effects(pure)
+  {
+    -- Century letter -> century base
+    let @Nat = match slice(@String.0, 0, 1) {
+      "I" -> 1800,
+      "J" -> 1900,
+      "K" -> 2000,
+      _   -> 1900
+    };
+
+    -- Two-digit year
+    let @Nat = @Nat.0 + parse_nat(slice(@String.0, 1, 3));
+
+    -- Half-month letter (column 4)
+    let @String = slice(@String.0, 3, 4);
+
+    -- Order within half-month (columns 5-6): packed as two chars
+    -- @String.1 is the original param after half-month was bound to @String.0
+    let @String = slice(@String.1, 4, 6);
+
+    -- Fragment letter (column 7)
+    -- @String.2 is the original param after half-month and order were bound
+    let @String = slice(@String.2, 6, 7);
+
+    -- Decode the order number: if second char is a letter, it encodes 10+
+    let @Nat = decode_order(@String.1);
+
+    -- Build readable designation: "YYYY LA" or "YYYY LA123"
+    -- @Nat.1 = year, @Nat.0 = order number
+    -- @String.2 = half-month letter, @String.0 = fragment letter
+    if @Nat.0 == 0 then {
+      to_string(@Nat.1) ++ " " ++ @String.2 ++ @String.0
+    } else {
+      to_string(@Nat.1) ++ " " ++ @String.2 ++ @String.0 ++ to_string(@Nat.0)
+    }
+  }
+
+  -- Decode the two-character order field in a provisional designation.
+  -- First char is digit or letter (letter = tens digit via letter_to_number).
+  -- Second char is units digit.
+  fn decode_order(@String -> @Nat)
+    requires(length(@String.0) == 2)
+    ensures(@Nat.result >= 0)
+    effects(pure)
+  {
+    let @String = slice(@String.0, 0, 1);
+    let @Nat = char_code(@String.0, 0);
+
+    let @Nat = if @Nat.0 >= 65 && @Nat.0 <= 90 then {
+      letter_to_number(@String.0) * 10
+    } else {
+      parse_nat(@String.0) * 10
+    };
+
+    @Nat.0 + parse_nat(slice(@String.1, 1, 2))
+  }
+
+  -- Check if a single-character string is a digit.
+  fn is_digit(@String -> @Bool)
+    requires(length(@String.0) == 1)
+    ensures(true)
+    effects(pure)
+  {
+    let @Nat = char_code(@String.0, 0);
+    @Nat.0 >= 48 && @Nat.0 <= 57
+  }
+}

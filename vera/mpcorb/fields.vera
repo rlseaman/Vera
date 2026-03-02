@@ -1,0 +1,184 @@
+module vera.mpcorb.fields;
+
+import vera.mpcorb.packed;
+
+-- Refinement types for physically constrained orbital element fields.
+
+type Degrees = { @Float64 | @Float64.0 >= 0.0 && @Float64.0 < 360.0 };
+type Inclination = { @Float64 | @Float64.0 >= 0.0 && @Float64.0 <= 180.0 };
+type Eccentricity = { @Float64 | @Float64.0 >= 0.0 && @Float64.0 < 1.0 };
+type PositiveFloat = { @Float64 | @Float64.0 > 0.0 };
+type Magnitude = { @Float64 | @Float64.0 >= -2.0 && @Float64.0 <= 35.0 };
+
+-- Individual field parsers for the MPCORB.DAT fixed-width format.
+-- Column positions are 1-indexed per the MPC specification;
+-- slice calls use 0-indexed offsets.
+--
+-- Reference: https://minorplanetcenter.net/iau/info/MPOrbitFormat.html
+
+-- Columns 1-7: Packed designation (7 chars).
+public fn parse_designation(@String -> @String)
+  requires(length(@String.0) >= 7)
+  ensures(length(@String.result) > 0)
+  effects(pure)
+{
+  vera.mpcorb.packed::unpack_designation(slice(@String.0, 0, 7))
+}
+
+-- Columns 9-13: Absolute magnitude H (5 chars, may be blank).
+public fn parse_abs_magnitude(@String -> @Option<Float64>)
+  requires(length(@String.0) >= 13)
+  ensures(true)
+  effects(pure)
+{
+  let @String = strip(slice(@String.0, 8, 13));
+  if length(@String.0) == 0 then {
+    None
+  } else {
+    Some(parse_float64(@String.0))
+  }
+}
+
+-- Columns 15-19: Slope parameter G (5 chars, may be blank).
+public fn parse_slope_param(@String -> @Option<Float64>)
+  requires(length(@String.0) >= 19)
+  ensures(true)
+  effects(pure)
+{
+  let @String = strip(slice(@String.0, 14, 19));
+  if length(@String.0) == 0 then {
+    None
+  } else {
+    Some(parse_float64(@String.0))
+  }
+}
+
+-- Columns 21-25: Epoch in packed form (5 chars) -> (year, month, day).
+public fn parse_epoch(@String -> @Tuple<Nat, Nat, Nat>)
+  requires(length(@String.0) >= 25)
+  ensures(
+    @Tuple<Nat, Nat, Nat>.result.0 >= 1800 &&
+    @Tuple<Nat, Nat, Nat>.result.0 <= 2099 &&
+    @Tuple<Nat, Nat, Nat>.result.1 >= 1 &&
+    @Tuple<Nat, Nat, Nat>.result.1 <= 12 &&
+    @Tuple<Nat, Nat, Nat>.result.2 >= 1 &&
+    @Tuple<Nat, Nat, Nat>.result.2 <= 31
+  )
+  effects(pure)
+{
+  vera.mpcorb.packed::unpack_epoch(slice(@String.0, 20, 25))
+}
+
+-- Columns 27-35: Mean anomaly M in degrees (9 chars).
+public fn parse_mean_anomaly(@String -> @Degrees)
+  requires(length(@String.0) >= 35)
+  ensures(@Degrees.result >= 0.0 && @Degrees.result < 360.0)
+  effects(pure)
+{
+  parse_float64(strip(slice(@String.0, 26, 35)))
+}
+
+-- Columns 38-46: Argument of perihelion omega in degrees (9 chars).
+public fn parse_arg_perihelion(@String -> @Degrees)
+  requires(length(@String.0) >= 46)
+  ensures(@Degrees.result >= 0.0 && @Degrees.result < 360.0)
+  effects(pure)
+{
+  parse_float64(strip(slice(@String.0, 37, 46)))
+}
+
+-- Columns 49-57: Longitude of ascending node Omega in degrees (9 chars).
+public fn parse_long_node(@String -> @Degrees)
+  requires(length(@String.0) >= 57)
+  ensures(@Degrees.result >= 0.0 && @Degrees.result < 360.0)
+  effects(pure)
+{
+  parse_float64(strip(slice(@String.0, 48, 57)))
+}
+
+-- Columns 60-68: Inclination i in degrees (9 chars, 0-180).
+public fn parse_inclination(@String -> @Inclination)
+  requires(length(@String.0) >= 68)
+  ensures(@Inclination.result >= 0.0 && @Inclination.result <= 180.0)
+  effects(pure)
+{
+  parse_float64(strip(slice(@String.0, 59, 68)))
+}
+
+-- Columns 71-79: Orbital eccentricity e (9 chars).
+public fn parse_eccentricity(@String -> @Eccentricity)
+  requires(length(@String.0) >= 79)
+  ensures(@Eccentricity.result >= 0.0 && @Eccentricity.result < 1.0)
+  effects(pure)
+{
+  parse_float64(strip(slice(@String.0, 70, 79)))
+}
+
+-- Columns 81-91: Mean daily motion n in degrees/day (11 chars).
+public fn parse_mean_motion(@String -> @PositiveFloat)
+  requires(length(@String.0) >= 91)
+  ensures(@PositiveFloat.result > 0.0)
+  effects(pure)
+{
+  parse_float64(strip(slice(@String.0, 80, 91)))
+}
+
+-- Columns 93-103: Semimajor axis a in AU (11 chars).
+public fn parse_semimajor_axis(@String -> @PositiveFloat)
+  requires(length(@String.0) >= 103)
+  ensures(@PositiveFloat.result > 0.0)
+  effects(pure)
+{
+  parse_float64(strip(slice(@String.0, 92, 103)))
+}
+
+-- Columns 118-122: Number of observations used (5 chars).
+public fn parse_num_observations(@String -> @Nat)
+  requires(length(@String.0) >= 122)
+  ensures(@Nat.result >= 0)
+  effects(pure)
+{
+  let @String = strip(slice(@String.0, 117, 122));
+  if length(@String.0) == 0 then {
+    0
+  } else {
+    parse_nat(@String.0)
+  }
+}
+
+-- Columns 124-126: Number of oppositions (3 chars).
+public fn parse_num_oppositions(@String -> @Nat)
+  requires(length(@String.0) >= 126)
+  ensures(@Nat.result >= 0)
+  effects(pure)
+{
+  let @String = strip(slice(@String.0, 123, 126));
+  if length(@String.0) == 0 then {
+    0
+  } else {
+    parse_nat(@String.0)
+  }
+}
+
+-- Columns 138-141: RMS residual in arcseconds (4 chars, may be blank).
+public fn parse_rms_residual(@String -> @Option<Float64>)
+  requires(length(@String.0) >= 141)
+  ensures(true)
+  effects(pure)
+{
+  let @String = strip(slice(@String.0, 137, 141));
+  if length(@String.0) == 0 then {
+    None
+  } else {
+    Some(parse_float64(@String.0))
+  }
+}
+
+-- Columns 167-194: Readable name / designation (28 chars).
+public fn parse_readable_name(@String -> @String)
+  requires(length(@String.0) >= 194)
+  ensures(true)
+  effects(pure)
+{
+  strip(slice(@String.0, 166, 194))
+}
