@@ -42,25 +42,25 @@ public data ParseResult {
 -- Lines are fixed-width, nominally 202 characters; minimum meaningful
 -- length is 166 characters (through the last mandatory orbital field).
 public fn parse_line(@String, @Nat -> @ParseResult)
-  requires(length(@String.0) >= 166)
+  requires(string_length(@String.0) >= 166)
   ensures(true)
   effects(pure)
 {
   let @String = vera.mpcorb.fields::parse_designation(@String.0);
 
-  let @Option<Float64> = if length(@String.1) >= 13 then {
+  let @Option<Float64> = if string_length(@String.1) >= 13 then {
     vera.mpcorb.fields::parse_abs_magnitude(@String.1)
   } else {
     None
   };
 
-  let @Option<Float64> = if length(@String.1) >= 19 then {
+  let @Option<Float64> = if string_length(@String.1) >= 19 then {
     vera.mpcorb.fields::parse_slope_param(@String.1)
   } else {
     None
   };
 
-  let @Tuple<Nat, Nat, Nat> = vera.mpcorb.fields::parse_epoch(@String.1);
+  let Tuple<@Nat, @Nat, @Nat> = vera.mpcorb.fields::parse_epoch(@String.1);
 
   let @Degrees = vera.mpcorb.fields::parse_mean_anomaly(@String.1);
   let @Degrees = vera.mpcorb.fields::parse_arg_perihelion(@String.1);
@@ -72,37 +72,41 @@ public fn parse_line(@String, @Nat -> @ParseResult)
   let @PositiveFloat = vera.mpcorb.fields::parse_mean_motion(@String.1);
   let @PositiveFloat = vera.mpcorb.fields::parse_semimajor_axis(@String.1);
 
-  let @Nat = if length(@String.1) >= 122 then {
+  let @Nat = if string_length(@String.1) >= 122 then {
     vera.mpcorb.fields::parse_num_observations(@String.1)
   } else {
     0
   };
 
-  let @Nat = if length(@String.1) >= 126 then {
+  let @Nat = if string_length(@String.1) >= 126 then {
     vera.mpcorb.fields::parse_num_oppositions(@String.1)
   } else {
     0
   };
 
-  let @Option<Float64> = if length(@String.1) >= 141 then {
+  let @Option<Float64> = if string_length(@String.1) >= 141 then {
     vera.mpcorb.fields::parse_rms_residual(@String.1)
   } else {
     None
   };
 
-  let @String = if length(@String.1) >= 194 then {
+  let @String = if string_length(@String.1) >= 194 then {
     vera.mpcorb.fields::parse_readable_name(@String.1)
   } else {
     ""
   };
 
+  -- Tuple destructuring above binds three @Nat values (year, month, day).
+  -- De Bruijn indices after all bindings:
+  --   @Nat.0 = num_oppositions, @Nat.1 = num_observations,
+  --   @Nat.2 = epoch_day, @Nat.3 = epoch_month, @Nat.4 = epoch_year
   Ok(MkMinorPlanet(
     @String.1,               -- designation
     @Option<Float64>.2,      -- abs magnitude
     @Option<Float64>.1,      -- slope param
-    @Tuple<Nat, Nat, Nat>.0.0,  -- epoch year
-    @Tuple<Nat, Nat, Nat>.0.1,  -- epoch month
-    @Tuple<Nat, Nat, Nat>.0.2,  -- epoch day
+    @Nat.4,                  -- epoch year
+    @Nat.3,                  -- epoch month
+    @Nat.2,                  -- epoch day
     @Degrees.2,              -- mean anomaly
     @Degrees.1,              -- arg perihelion
     @Degrees.0,              -- long node
